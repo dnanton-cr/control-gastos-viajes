@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen pb-12">
     <div class="max-w-7xl mx-auto px-4 py-8">
@@ -258,6 +259,11 @@
     </div>
 
     <script>
+        // Inicializar supabase
+        const SUPABASE_URL = 'https://whgqwpseddpretepqyoe.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_XsmpqhN3jvd1cnreQbclRg_X_oZCj1J';
+        const { createClient } = supabase;
+        const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         // Datos base iniciales de respaldo
         const initialExpenses = [
             { fecha: "2024-09-06", categoria: "Transporte", montoUSD: 13.65, comentarios: "METRO DE MADRID S.A. MADRID \\E", viaje: "Italia Set-2024", montoLocal: "" },
@@ -273,13 +279,21 @@
             localStorage.setItem('travel_expenses_v1', JSON.stringify(expenses));
         }
 
-        function init() {
+        async function init() {
             lucide.createIcons();
-            populateDropdowns();
-            renderTable(expenses);
-            updateKPIs(expenses);
-            renderChart();
+            await loadExpensesFromSupabase();
             document.getElementById('formDate').valueAsDate = new Date();
+        }
+    
+        async function loadExpensesFromSupabase() {
+            const { data, error } = await _supabase.from('expenses').select('*').order('fecha', { ascending: false });
+            if (!error && data) {
+                expenses = data;
+                populateDropdowns();
+                renderTable(expenses);
+                updateKPIs(expenses);
+                renderChart();
+            }
         }
 
         // Lector y Parser de Archivo CSV (Respaldo del Tab "Form Responses")
@@ -540,26 +554,30 @@
             document.getElementById(modalId).classList.remove('flex');
         }
 
-        function addIndividualExpense(event) {
+        async function addIndividualExpense(event) {
             event.preventDefault();
             const newExp = {
                 fecha: document.getElementById('formDate').value,
                 categoria: document.getElementById('formCategory').value,
-                montoUSD: parseFloat(document.getElementById('formMontoUSD').value) || 0,
-                montoLocal: document.getElementById('formMontoLocal').value,
+                monto_usd: parseFloat(document.getElementById('formMontoUSD').value) || 0,
+                monto_local: document.getElementById('formMontoLocal').value,
                 comentarios: document.getElementById('formComentarios').value,
                 viaje: document.getElementById('formTrip').value
             };
-
-            expenses.unshift(newExp);
-            saveToLocalStorage();
-            populateDropdowns();
-            filterTable();
-            renderChart();
-            closeModal('individualModal');
-            document.getElementById('individualForm').reset();
+        
+            const { data, error } = await _supabase.from('expenses').insert([newExp]).select();
+            if (!error && data) {
+                expenses.unshift(data[0]);
+                populateDropdowns();
+                filterTable();
+                renderChart();
+                closeModal('individualModal');
+                document.getElementById('individualForm').reset();
+            } else {
+                alert("Error al guardar en Supabase");
+            }
         }
-
+        
         function addBulkRow() {
             const container = document.getElementById('bulkRowsContainer');
             const rowId = Date.now() + Math.random();
