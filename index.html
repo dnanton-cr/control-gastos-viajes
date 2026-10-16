@@ -574,6 +574,7 @@
                 closeModal('individualModal');
                 document.getElementById('individualForm').reset();
             } else {
+                console.error("Detalle del error de Supabase:", error); // <-- Línea para entender de donde viene el error 
                 alert("Error al guardar en Supabase");
             }
         }
